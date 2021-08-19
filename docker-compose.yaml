@@ -1,0 +1,105 @@
+version: '3.6'
+services:
+    postgresql:
+      image: docker.io/bitnami/postgresql:10
+      volumes:
+        - 'postgresql_data:/bitnami/postgresql'
+      environment:
+        - POSTGRESQL_DATABASE=bitnami_airflow
+        - POSTGRESQL_USERNAME=bn_airflow
+        - POSTGRESQL_PASSWORD=bitnami1
+        - ALLOW_EMPTY_PASSWORD=yes
+    redis:
+      image: docker.io/bitnami/redis:6.0
+      volumes:
+        - 'redis_data:/bitnami'
+      environment:
+        - ALLOW_EMPTY_PASSWORD=yes
+    airflow-scheduler:
+      # TODO: to be reverted to use proper registry/distro on T39132
+      # image: docker.io/bitnami/airflow-scheduler:2
+      image: docker.io/bitnami/airflow-scheduler:2
+      environment:
+        - AIRFLOW_USERNAME=admin
+        - AIRFLOW_PASSWORD=admin555
+        - AIRFLOW_DATABASE_NAME=bitnami_airflow
+        - AIRFLOW_DATABASE_USERNAME=bn_airflow
+        - AIRFLOW_DATABASE_PASSWORD=bitnami1
+        - AIRFLOW_EXECUTOR=CeleryExecutor
+        - AIRFLOW_WEBSERVER_HOST=airflow
+        - AIRFLOW_LOAD_EXAMPLES=no
+      volumes:
+        - airflow_scheduler_data:/bitnami
+        - ./airflow/dags:/opt/bitnami/airflow/dags
+        - ./image_files/new_images:/bitnami/new_images
+        - ./image_files/ml_images:/bitnami/ml_images
+      depends_on:
+        - "model-train"
+    airflow-worker:
+      # TODO: to be reverted to use proper registry/distro on T39132
+      # image: docker.io/bitnami/airflow-worker:2
+      image: docker.io/bitnami/airflow-worker:2
+      environment:
+        - AIRFLOW_USERNAME=admin
+        - AIRFLOW_PASSWORD=admin555
+        - AIRFLOW_DATABASE_NAME=bitnami_airflow
+        - AIRFLOW_DATABASE_USERNAME=bn_airflow
+        - AIRFLOW_DATABASE_PASSWORD=bitnami1
+        - AIRFLOW_EXECUTOR=CeleryExecutor
+        - AIRFLOW_WEBSERVER_HOST=airflow
+      volumes:
+        - airflow_worker_data:/bitnami
+        - ./airflow/dags:/opt/bitnami/airflow/dags
+        - ./image_files/new_images:/bitnami/new_images
+        - ./image_files/ml_images:/bitnami/ml_images
+    airflow:
+      image: docker.io/bitnami/airflow:2
+      environment:
+        - AIRFLOW_USERNAME=admin
+        - AIRFLOW_PASSWORD=admin555
+        - AIRFLOW_DATABASE_NAME=bitnami_airflow
+        - AIRFLOW_DATABASE_USERNAME=bn_airflow
+        - AIRFLOW_DATABASE_PASSWORD=bitnami1
+        - AIRFLOW_EXECUTOR=CeleryExecutor
+        - AIRFLOW_LOAD_EXAMPLES=no
+      ports:
+        - '8080:8080'
+      volumes:
+        - airflow_data:/bitnami
+        - ./airflow/dags:/opt/bitnami/airflow/dags
+        - ./image_files/new_images:/bitnami/new_images
+        - ./image_files/ml_images:/bitnami/ml_images
+    ml-api:
+        container_name: ml-api
+        build:
+          context: app/
+        ports:
+          - "5500:5500"
+        depends_on:
+          - "airflow-scheduler"
+        volumes:
+          - ./app:/app
+          - ./image_files/ml_images:/app/ml_images
+    model-train:
+        container_name: model-train
+        build:
+          context: train/
+        ports:
+          - "5550:5550"
+        volumes:
+          - ./app/models:/train/models
+          - ./images:/train/images
+        ipc: "host"
+        privileged: true
+
+volumes:
+  airflow_scheduler_data:
+    driver: local
+  airflow_worker_data:
+    driver: local
+  airflow_data:
+    driver: local
+  postgresql_data:
+    driver: local
+  redis_data:
+    driver: local
