@@ -3,16 +3,14 @@ from datetime import date, datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
-from airflow.operators.dummy import DummyOperator
-from airflow.contrib.sensors.file_sensor import FileSensor
+from airflow.providers.docker.operators.docker import DockerOperator
+from airflow.sensors.filesystem import FileSensor
 import os
 import shutil
-import requests
-
 
 default_args = {
     "depends_on_past": False,
-    "start_date": airflow.utils.dates.days_ago(1),
+    "start_date": datetime(2021, 8, 20, 15, 50, 0),
     "retries": 1,
     "retry_delay": timedelta(hours=1),
 }
@@ -20,20 +18,18 @@ default_args = {
 
 def _move_new_image(src_folder, dst_folder):
     file_names = os.listdir(src_folder)
-
     for file_name in file_names:
-        shutil.move(os.path.join(src_folder, file_name), dst_folder)
+        path = os.path.join(src_folder, file_name)
+        shutil.move(path, dst_folder)
 
 
-with DAG(dag_id="image_move_pipeline", schedule_interval="@once", default_args=default_args) as dag:
-    # start_task = DummyOperator(task_id="start")
-    # stop_task = DummyOperator(task_id="stop")
+with DAG(dag_id="image_move_pipeline", schedule_interval="@daily", default_args=default_args) as dag:
+    run_train = BashOperator(task_id='docker_run_train', bash_command="curl -XGET 'model-train:5550/train'")
     sensor_task = FileSensor(task_id="file_sensor_task", poke_interval=30, filepath="/bitnami/new_images/")
     move_image = PythonOperator(task_id='move_new_image',
                                 python_callable=_move_new_image,
                                 op_args=['/bitnami/new_images/', '/bitnami/ml_images/']
                                 )
-    send_curl = BashOperator(task_id='send_curl', bash_command="curl -XGET 'ml-api:5500/predict'")
+    run_predict = BashOperator(task_id='send_curl', bash_command="curl -XGET 'ml-api:5500/predict/bitnami/ml_images'")
 
-# start_task >> sensor_task >> move_image >> send_curl >> stop_task
-sensor_task >> move_image >> send_curl
+run_train >> sensor_task >> move_image >> run_predict
