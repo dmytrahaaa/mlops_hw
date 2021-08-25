@@ -31,6 +31,7 @@ services:
     volumes:
       - airflow_scheduler_data:/bitnami
       - ./airflow/dags:/opt/bitnami/airflow/dags
+      - ./airflow/airflow.cfg:/opt/bitnami/airflow/airflow.cfg
       - ./image_files/new_images:/bitnami/new_images
       - ./image_files/ml_images:/bitnami/ml_images
       - ./images:/bitnami/images
@@ -50,6 +51,7 @@ services:
     volumes:
       - airflow_worker_data:/bitnami
       - ./airflow/dags:/opt/bitnami/airflow/dags
+      - ./airflow/airflow.cfg:/opt/bitnami/airflow/airflow.cfg
       - ./image_files/new_images:/bitnami/new_images
       - ./image_files/ml_images:/bitnami/ml_images
       - ./images:/bitnami/images
@@ -69,6 +71,7 @@ services:
     volumes:
       - airflow_data:/bitnami
       - ./airflow/dags:/opt/bitnami/airflow/dags
+      - ./airflow/airflow.cfg:/opt/bitnami/airflow/airflow.cfg
       - ./image_files/new_images:/bitnami/new_images
       - ./image_files/ml_images:/bitnami/ml_images
       - ./images:/bitnami/images
@@ -78,22 +81,30 @@ services:
     build:
       context: app/
     ports:
-      - "5500:5500"
+      - '5500:5500'
     volumes:
       - ./app:/app
-  #          - ./image_files/ml_images:/app/ml_images
   model-train:
     container_name: model-train
     build:
       context: train/
     ports:
-      - "5550:5550"
+      - '5550:5550'
     volumes:
       - ./train:/train
       - ./app/models:/train/models
       - ./images:/train/images
     ipc: "host"
     privileged: true
+
+#  mlflow-app:
+#    container_name: mlflow-app
+#    build:
+#      context: mlflow/
+#    ports:
+#      - '5000:5000'
+#    volumes:
+#      - ./mlflow:/mlflow
 
 volumes:
   airflow_scheduler_data:
